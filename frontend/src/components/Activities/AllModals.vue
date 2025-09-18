@@ -4,7 +4,7 @@
     v-model:reloadTasks="activities"
     :task="task"
     :doctype="doctype"
-    :doc="doc.data?.name"
+    :doc="doc?.name"
     @after="redirect('tasks')"
   />
   <NoteModal
@@ -12,7 +12,7 @@
     v-model:reloadNotes="activities"
     :note="note"
     :doctype="doctype"
-    :doc="doc.data?.name"
+    :doc="doc?.name"
     @after="redirect('notes')"
   />
   <CallLogModal
@@ -22,21 +22,36 @@
     :referenceDoc="referenceDoc"
     :options="{ afterInsert: () => activities.reload() }"
   />
+  <EventModal
+    v-if="showEventModal"
+    v-model="showEventModal"
+    :event="activeEvent"
+    :doctype="doctype"
+    :docname="doc?.name"
+  />
 </template>
 <script setup>
 import TaskModal from '@/components/Modals/TaskModal.vue'
 import NoteModal from '@/components/Modals/NoteModal.vue'
 import CallLogModal from '@/components/Modals/CallLogModal.vue'
+import EventModal from '@/components/Modals/EventModal.vue'
+import { showEventModal, activeEvent } from '@/composables/event'
 import { call } from 'frappe-ui'
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const props = defineProps({
   doctype: String,
+  doc: Object,
 })
 
 const activities = defineModel()
-const doc = defineModel('doc')
+
+// Event
+function showEvent(e) {
+  showEventModal.value = true
+  activeEvent.value = e
+}
 
 // Tasks
 const showTaskModal = ref(false)
@@ -92,8 +107,8 @@ const referenceDoc = ref({})
 
 function createCallLog() {
   let doctype = props.doctype
-  let docname = props.doc.data?.name
-  referenceDoc.value = { ...props.doc.data }
+  let docname = props.doc?.name
+  referenceDoc.value = { ...props.doc }
   callLog.value = {
     reference_doctype: doctype,
     reference_docname: docname,
@@ -115,6 +130,7 @@ function redirect(tabName) {
 }
 
 defineExpose({
+  showEvent,
   showTask,
   deleteTask,
   updateTaskStatus,

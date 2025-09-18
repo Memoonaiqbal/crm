@@ -1,15 +1,20 @@
 import { getScript } from '@/data/script'
+import { globalStore } from '@/stores/global'
+import { showSettings, activeSettingsPage } from '@/composables/settings'
 import { runSequentially, parseAssignees } from '@/utils'
 import { createDocumentResource, createResource, toast } from 'frappe-ui'
-import { reactive } from 'vue'
+import { ref, reactive } from 'vue'
 
 const documentsCache = {}
 const controllersCache = {}
+const assigneesCache = {}
 
 export function useDocument(doctype, docname) {
-  const { setupScript } = getScript(doctype)
+  const { setupScript, scripts } = getScript(doctype)
 
   documentsCache[doctype] = documentsCache[doctype] || {}
+
+  const error = ref('')
 
   if (!documentsCache[doctype][docname || '']) {
     if (docname) {
@@ -17,13 +22,28 @@ export function useDocument(doctype, docname) {
         doctype: doctype,
         name: docname,
         onSuccess: async () => await setupFormScript(),
+        onError: (err) => {
+          error.value = err
+          if (err.exc_type === 'DoesNotExistError') {
+            toast.error(__(err.messages[0] || 'Document does not exist'))
+          }
+          if (err.exc_type === 'PermissionError') {
+            toast.error(
+              __(
+                err.messages[0] ||
+                  'You do not have permission to access this document',
+              ),
+            )
+          }
+        },
         setValue: {
           onSuccess: () => {
             triggerOnSave()
             toast.success(__('Document updated successfully'))
           },
           onError: (err) => {
-            let errorMessage = __('Error updating document')
+            triggerOnError(err)
+
             if (err.exc_type == 'MandatoryError') {
               const fieldName = err.messages
                 .map((msg) => {
@@ -31,9 +51,18 @@ export function useDocument(doctype, docname) {
                   return arr[arr.length - 1].trim()
                 })
                 .join(', ')
-              errorMessage = __('Mandatory field error: {0}', [fieldName])
+              toast.error(__('Mandatory field error: {0}', [fieldName]))
+              return
             }
-            toast.error(errorMessage)
+
+            err.messages?.forEach((msg) => {
+              toast.error(msg)
+            })
+
+            if (err.messages?.length === 0) {
+              toast.error(__('An error occurred while updating the document'))
+            }
+
             console.error(err)
           },
         },
@@ -46,16 +75,20 @@ export function useDocument(doctype, docname) {
     }
   }
 
-  const assignees = createResource({
-    url: 'crm.api.doc.get_assigned_users',
-    cache: `assignees:${doctype}:${docname}`,
-    auto: docname ? true : false,
-    params: {
-      doctype: doctype,
-      name: docname,
-    },
-    transform: (data) => parseAssignees(data),
-  })
+  assigneesCache[doctype] = assigneesCache[doctype] || {}
+
+  if (!assigneesCache[doctype][docname || '']) {
+    assigneesCache[doctype][docname || ''] = createResource({
+      url: 'crm.api.doc.get_assigned_users',
+      cache: `assignees:${doctype}:${docname}`,
+      auto: docname ? true : false,
+      params: {
+        doctype: doctype,
+        name: docname,
+      },
+      transform: (data) => parseAssignees(data),
+    })
+  }
 
   async function setupFormScript() {
     if (
@@ -71,8 +104,21 @@ export function useDocument(doctype, docname) {
 
     controllersCache[doctype][docname || ''] = {}
 
+    const { makeCall } = globalStore()
+
+    let helpers = {}
+
+    helpers.crm = {
+      makePhoneCall: makeCall,
+      openSettings: (page) => {
+        showSettings.value = true
+        activeSettingsPage.value = page
+      },
+    }
+
     const controllersArray = await setupScript(
       documentsCache[doctype][docname || ''],
+      helpers,
     )
 
     if (!controllersArray || controllersArray.length === 0) return
@@ -124,6 +170,13 @@ export function useDocument(doctype, docname) {
   async function triggerOnSave() {
     const handler = async function () {
       await (this.onSave?.() || this.on_save?.())
+    }
+    await trigger(handler)
+  }
+
+  async function triggerOnError() {
+    const handler = async function () {
+      await (this.onError?.() || this.on_error?.())
     }
     await trigger(handler)
   }
@@ -224,11 +277,14 @@ export function useDocument(doctype, docname) {
 
   return {
     document: documentsCache[doctype][docname || ''],
-    assignees,
+    assignees: assigneesCache[doctype][docname || ''],
+    scripts,
+    error,
     getControllers,
     triggerOnLoad,
     triggerOnBeforeCreate,
     triggerOnSave,
+    triggerOnError,
     triggerOnRefresh,
     triggerOnChange,
     triggerOnRowAdd,

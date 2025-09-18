@@ -9,40 +9,26 @@
         $attrs.class,
         showDropdown ? 'rounded-br-none rounded-tr-none' : '',
       ]"
+      :iconLeft="activeButton.icon"
       @click="() => activeButton.onClick()"
-    >
-      <template #prefix>
-        <FeatherIcon
-          v-if="activeButton.icon && typeof activeButton.icon === 'string'"
-          :name="activeButton.icon"
-          class="h-4 w-4"
-        />
-        <component
-          v-else-if="activeButton.icon"
-          :is="activeButton.icon"
-          class="h-4 w-4"
-        />
-      </template>
-    </Button>
+    />
     <Dropdown
-      v-show="showDropdown"
+      v-if="showDropdown"
       :options="parsedOptions"
       size="sm"
-      class="flex-1 [&>div>div>div]:w-full"
       placement="right"
-    >
-      <template v-slot="{ togglePopover }">
-        <Button
-          :variant="$attrs.variant"
-          @click="togglePopover"
-          icon="chevron-down"
-          class="!w-6 justify-start rounded-bl-none rounded-tl-none border-0 pr-0 text-xs"
-        />
-      </template>
-    </Dropdown>
+      :button="{
+        icon: 'chevron-down',
+        variant: $attrs.variant,
+        size: $attrs.size,
+        class:
+          '!w-6 justify-start rounded-bl-none rounded-tl-none border-0 pr-0 text-xs',
+      }"
+    />
   </div>
 </template>
 <script setup>
+import { DropdownOption } from '@/utils'
 import { Dropdown } from 'frappe-ui'
 import { computed, ref } from 'vue'
 
@@ -61,9 +47,13 @@ const parsedOptions = computed(() => {
     props.options?.map((option) => {
       return {
         label: option.label,
-        onClick: () => {
-          activeButton.value = option
-        },
+        component: (props) =>
+          DropdownOption({
+            option: option.label,
+            active: props.active,
+            selected: option.label === activeButton.value.label,
+            onClick: () => (activeButton.value = option),
+          }),
       }
     }) || []
   )
