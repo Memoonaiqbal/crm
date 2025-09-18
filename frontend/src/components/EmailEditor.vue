@@ -19,6 +19,22 @@
     <template #top>
       <div class="flex flex-col gap-3">
         <div class="sm:mx-10 mx-4 flex items-center gap-2 border-t pt-2.5">
+          <span class="text-xs text-ink-gray-4">{{ __('FROM') }}:</span>
+          <select
+            v-model="selectedFromEmail"
+            class="form-input w-full"
+          >
+            <option
+              v-for="email in fromEmails"
+              :key="email.email_id"
+              :value="email.email_id"
+            >
+              {{ email.email_id }}
+            </option>
+          </select>
+        </div>
+
+        <div class="sm:mx-10 mx-4 flex items-center gap-2 border-t pt-2.5">
           <span class="text-xs text-ink-gray-4">{{ __('TO') }}:</span>
           <MultiSelectEmailInput
             class="flex-1"
@@ -186,7 +202,7 @@ import { capture } from '@/telemetry'
 import { validateEmail } from '@/utils'
 import Paragraph from '@tiptap/extension-paragraph'
 import { EditorContent } from '@tiptap/vue-3'
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 
 const props = defineProps({
   placeholder: {
@@ -253,6 +269,40 @@ const bccEmails = ref([])
 const ccInput = ref(null)
 const bccInput = ref(null)
 
+const fromEmails = ref([]);
+const selectedFromEmail = ref('');
+
+async function loadEmailsDirectly() {
+  try {
+    const response = await fetch('/api/method/root_home_customisation.api.email_accounts.get_email_accounts_for_user', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    const emailAccounts = data.message || [];
+    fromEmails.value = emailAccounts;
+
+    if (emailAccounts.length > 0) {
+      selectedFromEmail.value = emailAccounts[0].email_id;
+    }
+
+    console.log('✅ Loaded FROM emails:', emailAccounts);
+  } catch (error) {
+    console.error('❌ Failed to load email accounts:', error);
+  }
+}
+
+
+onMounted(async () => {
+  loadEmailsDirectly();
+});
+
+
 const editor = computed(() => {
   return textEditor.value.editor
 })
@@ -309,6 +359,7 @@ defineExpose({
   toEmails,
   ccEmails,
   bccEmails,
+  selectedFromEmail,
 })
 
 const textEditorMenuButtons = [

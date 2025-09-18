@@ -22,6 +22,11 @@ add_to_apps_screen = [
 	}
 ]
 
+scheduler_events = {
+    "hourly": [
+        "crm.integrations.ringcentral.api.sync_call_logs"
+    ]
+}
 # Includes in <head>
 # ------------------
 

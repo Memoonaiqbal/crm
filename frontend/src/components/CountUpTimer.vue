@@ -78,5 +78,5 @@ function getTime(_seconds = 0) {
   return hoursCount + minutesCount + ':' + secondsCount
 }
 
-defineExpose({ start, stop, getTime, updatedTime })
+defineExpose({ start, stop, seconds, getTime, updatedTime })
 </script>

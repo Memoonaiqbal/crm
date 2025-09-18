@@ -468,6 +468,11 @@ const organization = createResource({
   onSuccess: (data) => (deal.data._organizationObj = data),
 })
 
+async function testAuthStatus() {
+  const response = await call('crm.integrations.ringcentral.api.check_auth_status');
+  console.log("Auth Status:", response);
+}
+
 onMounted(() => {
   $socket.on('crm_customer_created', () => {
     toast.success(__('Customer created successfully'))
@@ -478,6 +483,8 @@ onMounted(() => {
     return
   }
   deal.fetch()
+  testAuthStatus();
+  console.log('callEnabled in Deal.vue:', callEnabled.value); // Add this line
 })
 
 onBeforeUnmount(() => {
